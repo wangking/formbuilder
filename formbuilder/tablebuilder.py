@@ -158,8 +158,9 @@ class Field(dict):
     def retrieve(self, name, path=None):
         if callable(self.custom_retrieve):
             return self.custom_retrieve(name,path)
-
-        raise Exception("you must write your retrive yourself")
+        else:
+            return name
+        # raise Exception("you must write your retrive yourself")
 
     def formatter(self, value):
         if value is None or not self.requires:
@@ -388,10 +389,3 @@ class Table(dict):
             return '%s AS %s' % (self._ot, self._tablename)
         return self._tablename
 
-
-if __name__ == '__main__':
-    frm = Table(
-        "huaiyu",
-        Field("name","string",default="hello"),
-        Field("age","integer",default=20)
-    )

@@ -610,7 +610,7 @@ class FORMBUILDER(FORM):
         boolean = BooleanWidget,
         blob = None,
         options = OptionsWidget,
-        multiple = MultipleOptionsWidget,
+        multiple = CheckboxesWidget,
         radio = RadioWidget,
         checkboxes = CheckboxesWidget,
         autocomplete = AutocompleteWidget,
@@ -639,8 +639,8 @@ class FORMBUILDER(FORM):
         comments = True,
         keepopts = [],
         ignore_rw = False,
-        record_id = None,
         formstyle = 'table3cols',
+        record_pk_name = '_id',
         **attributes
         ):
         """
@@ -652,6 +652,7 @@ class FORMBUILDER(FORM):
         self.custom_file = upload
         self.ignore_rw = ignore_rw
         self.formstyle = formstyle
+        self.record_pk_name = record_pk_name
         nbsp = XML('&nbsp;') # Firefox2 does not display fields with blanks
         FORM.__init__(self, *[], **attributes)
         ofields = fields
@@ -659,8 +660,7 @@ class FORMBUILDER(FORM):
         # if no fields are provided, build it from the provided table
         # will only use writable or readable fields, unless forced to ignore
         if fields == None:
-            fields = [f.name for f in table if (ignore_rw or f.writable or f.readable) and not f.compute]
-        self.fields = fields
+            fields = [f.name for f in table if (ignore_rw or f.writable or f.readable)]
 
         self.table = table
         self.record = record
@@ -707,7 +707,7 @@ class FORMBUILDER(FORM):
                 continue
 
             if record:
-                default = record[fieldname]
+                default = record.get(fieldname, field.default)
             else:
                 default = field.default
 
@@ -841,7 +841,6 @@ class FORMBUILDER(FORM):
         keepvalues=False,
         onvalidation=None,
         hideerror=False,
-        detect_record_change=False,
         ):
 
         """
@@ -854,33 +853,14 @@ class FORMBUILDER(FORM):
         """
         # implement logic to detect whether record exist but has been modified
         # server side
-        self.record_changed = None
-        if detect_record_change:
-            if self.record:
-                self.record_changed = False
-                serialized = '|'.join(str(self.record[k]) for k in self.table.fields())
-                self.record_hash = md5_hash(serialized)
-
-        # logic to deal with record_id for keyed tables
         if self.record:
-            if keyed:
-                formname_id = '.'.join(str(self.record[k])
-                                       for k in self.table._primarykey
-                                       if hasattr(self.record,k))
-                record_id = dict((k,request_vars[k]) for k in self.table._primarykey)
-            else:
-                (formname_id, record_id) = (self.record.id, request_vars.get('id', None))
+            (formname_id, record_id) = ( self.record.get(self.record_pk_name, None), 
+                                         request_vars.get(self.record_pk_name, None))
             keepvalues = True
         else:
-            if keyed:
-                formname_id = 'create'
-                record_id = dict([(k,None) for k in self.table._primarykey])
-            else:
-                (formname_id, record_id) = ('create', None)
+            (formname_id, record_id) = ('create', None)
 
-        if not keyed and isinstance(record_id, (list, tuple)):
-            record_id = record_id[0]
-
+        
         if formname:
             formname = formname % dict(tablename = self.table._tablename,
                                        record_id = formname_id)
@@ -892,8 +872,6 @@ class FORMBUILDER(FORM):
             requires = field.requires or []
             if not isinstance(requires, (list, tuple)):
                 requires = [requires]
-            [item.set_self_id(self.record_id) for item in requires
-            if hasattr(item, 'set_self_id') and self.record_id]
 
         # ## END
 
@@ -904,7 +882,6 @@ class FORMBUILDER(FORM):
         ret = FORM.accepts(
             self,
             request_vars,
-            session,
             formname,
             keepvalues,
             onvalidation,
@@ -958,10 +935,7 @@ class FORMBUILDER(FORM):
                         self.field_parent[row_id]._traverse(False,hideerror)
                     self.custom.widget[ fieldname ] = widget
             return ret
-
-        if record_id and str(record_id) != str(self.record_id):
-            raise SyntaxError, 'user is tampering with form\'s record_id: ' \
-                               '%s != %s' % (record_id, self.record_id)
+        self.record_id = record_id
 
         if requested_delete and self.custom.deletable:
             self.errors.clear()
@@ -994,8 +968,9 @@ class FORMBUILDER(FORM):
                 continue  # do not update if password was not changed
             elif field.type == 'upload':
                 if self.custom_file:
-                    self.errors[fieldname], self.vars[fieldname] = self.custom_file(self.vars)
-                    continue
+                    self.vars[fieldname] = self.custom_file(field, request_vars)
+                else:
+                    self.vars[fieldname] = field.store(request_vars[fieldname],request_vars.get("%s.original"%fieldname,""))
                 continue
             elif fieldname in self.vars:
                 fields[fieldname] = self.vars[fieldname]
@@ -1022,27 +997,6 @@ class FORMBUILDER(FORM):
                  in request_vars:
                 fields[fieldname] = self.vars[fieldname]
         return ret
-
-    @staticmethod
-    def factory(*fields, **attributes):
-        """
-        generates a FORMBUILDER for the given fields.
-
-        Internally will build a non-database based data model
-        to hold the fields.
-        """
-        # Define a table name, this way it can be logical to our CSS.
-        # And if you switch from using FORMBUILDER to FORMBUILDER.factory
-        # your same css definitions will still apply.
-
-        table_name = attributes.get('table_name', 'no_table')
-
-        # So it won't interfear with SQLDB.define_table
-        if 'table_name' in attributes:
-            del attributes['table_name']
-
-        return FORMBUILDER(SQLDB(None).define_table(table_name, *fields),
-                       **attributes)
 
 if __name__ == '__main__':
     import tablebuilder

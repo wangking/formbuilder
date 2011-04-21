@@ -30,7 +30,7 @@ def safe_float(x):
 
 class FormWidget(object):
     """
-    helper for SQLFORM to generate form input fields (widget),
+    helper for FORMBUILDER to generate form input fields (widget),
     related to the fieldtype
     """
 
@@ -549,25 +549,25 @@ class AutocompleteWidget(object):
             return TAG[''](INPUT(**attr),DIV(_id=div_id,_style='position:absolute;'))
 
 
-class SQLFORM(FORM):
+class FORMBUILDER(FORM):
 
     """
-    SQLFORM is used to map a table (and a current record) into an HTML form
+    FORMBUILDER is used to map a table (and a current record) into an HTML form
 
     given a SQLTable stored in db.table
 
     generates an insert form::
 
-        SQLFORM(db.table)
+        FORMBUILDER(db.table)
 
     generates an update form::
 
         record=db.table[some_id]
-        SQLFORM(db.table, record)
+        FORMBUILDER(db.table, record)
 
     generates an update with a delete button::
 
-        SQLFORM(db.table, record, deletable=True)
+        FORMBUILDER(db.table, record, deletable=True)
 
     if record is an int::
 
@@ -581,8 +581,6 @@ class SQLFORM(FORM):
         names.
     :param col3: a dictionary with content for an optional third column
             (right of each field). keys are field names.
-    :param linkto: the URL of a controller/function to access referencedby
-        records
             see controller appadmin.py for examples
     :param upload: the URL of a controller/function to download an uploaded file
             see controller appadmin.py for examples
@@ -629,7 +627,7 @@ class SQLFORM(FORM):
         table,
         record = None,
         deletable = False,
-        linkto = None,
+        download = None,
         upload = None,
         fields = None,
         labels = None,
@@ -646,13 +644,12 @@ class SQLFORM(FORM):
         **attributes
         ):
         """
-        SQLFORM(db.table,
+        FORMBUILDER(db.table,
                record=None,
                fields=['name'],
                labels={'name': 'Your name'},
-               linkto=URL(r=request, f='table/db/')
         """
-
+        self.custom_file = upload
         self.ignore_rw = ignore_rw
         self.formstyle = formstyle
         nbsp = XML('&nbsp;') # Firefox2 does not display fields with blanks
@@ -677,7 +674,6 @@ class SQLFORM(FORM):
         self.custom.label = Storage()
         self.custom.comment = Storage()
         self.custom.widget = Storage()
-        self.custom.linkto = Storage()
 
         for fieldname in self.fields:
             if fieldname.find('.') >= 0:
@@ -703,9 +699,9 @@ class SQLFORM(FORM):
             field_id = '%s_%s' % (table._tablename, fieldname)
 
             label = LABEL(label, colon, _for=field_id,
-                          _id=field_id+SQLFORM.ID_LABEL_SUFFIX)
+                          _id=field_id+FORMBUILDER.ID_LABEL_SUFFIX)
 
-            row_id = field_id + SQLFORM.ID_ROW_SUFFIX
+            row_id = field_id + FORMBUILDER.ID_ROW_SUFFIX
 
             if readonly and not ignore_rw and not field.readable:
                 continue
@@ -734,16 +730,16 @@ class SQLFORM(FORM):
                 elif field.type in ['blob']:
                     continue
                 elif field.type == 'upload':
-                    inp = UploadWidget.represent(field, default, upload)
+                    inp = UploadWidget.represent(field, default, download)
                 elif field.type == 'boolean':
                     inp = self.widgets.boolean.widget(field, default, _disabled=True)
                 else:
                     inp = field.formatter(default)
             elif field.type == 'upload':
                 if hasattr(field, 'widget') and field.widget:
-                    inp = field.widget(field, default, upload)
+                    inp = field.widget(field, default, download)
                 else:
-                    inp = self.widgets.upload.widget(field, default, upload)
+                    inp = self.widgets.upload.widget(field, default, download)
             elif hasattr(field, 'widget') and field.widget:
                 inp = field.widget(field, default)
             elif field.type == 'boolean':
@@ -783,9 +779,9 @@ class SQLFORM(FORM):
         # when writable, add submit button
         self.custom.submit = ''
         if not readonly:
-            widget = INPUT(_type='submit',
+            widget = INPUT(_type='submit',_class="submit",
                            _value=submit_button)
-            xfields.append(('submit_record'+SQLFORM.ID_ROW_SUFFIX,
+            xfields.append(('submit_record'+FORMBUILDER.ID_ROW_SUFFIX,
                             '', widget,col3.get('submit_button', '')))
             self.custom.submit = widget
         # if a record is provided and found
@@ -856,10 +852,6 @@ class SQLFORM(FORM):
         elseif detect_record_change == False than:
           form.record_changed = None
         """
-
-        if request_vars.__class__.__name__ == 'Request':
-            request_vars = request_vars.post_vars
-
         # implement logic to detect whether record exist but has been modified
         # server side
         self.record_changed = None
@@ -959,7 +951,7 @@ class SQLFORM(FORM):
                         value = self.record[fieldname]
                     else:
                         value = self.table[fieldname].default
-                    row_id = '%s_%s%s' % (self.table,fieldname,SQLFORM.ID_ROW_SUFFIX)
+                    row_id = '%s_%s%s' % (self.table,fieldname,FORMBUILDER.ID_ROW_SUFFIX)
                     widget = field.widget(field, value)
                     self.field_parent[row_id].components = [ widget ]
                     if not field.type.startswith('list:'):
@@ -972,15 +964,6 @@ class SQLFORM(FORM):
                                '%s != %s' % (record_id, self.record_id)
 
         if requested_delete and self.custom.deletable:
-            if dbio:
-                if keyed:
-                    qry = reduce(lambda x,y: x & y,
-                                 [self.table[k]==record_id[k] for k in self.table._primarykey])
-                    if self.table._db(qry).delete():
-                        self.vars.update(record_id)
-                else:
-                    self.table._db(self.table.id == self.record.id).delete()
-                    self.vars.id = self.record.id
             self.errors.clear()
             for component in self.elements('input, select, textarea'):
                 component['_disabled'] = True
@@ -1010,29 +993,9 @@ class SQLFORM(FORM):
                     PasswordWidget.DEFAULT_PASSWORD_DISPLAY:
                 continue  # do not update if password was not changed
             elif field.type == 'upload':
-                f = self.vars[fieldname]
-                fd = fieldname + '__delete'
-                if f == '' or f == None:
-                    if self.vars.get(fd, False) or not self.record:
-                        fields[fieldname] = ''
-                    else:
-                        fields[fieldname] = self.record[fieldname]
-                    self.vars[fieldname] = fields[fieldname]
+                if self.custom_file:
+                    self.errors[fieldname], self.vars[fieldname] = self.custom_file(self.vars)
                     continue
-                elif hasattr(f,'file'):
-                    (source_file, original_filename) = (f.file, f.filename)
-                elif isinstance(f, (str, unicode)):
-                    ### do not know why this happens, it should not
-                    (source_file, original_filename) = \
-                        (cStringIO.StringIO(f), 'file.txt')
-                newfilename = field.store(source_file, original_filename)
-                # this line is for backward compatibility only
-                self.vars['%s_newfilename' % fieldname] = newfilename
-                fields[fieldname] = newfilename
-                if isinstance(field.uploadfield,str):
-                    fields[field.uploadfield] = source_file.read()
-                # proposed by Hamdy (accept?) do we need fields at this point?
-                self.vars[fieldname] = fields[fieldname]
                 continue
             elif fieldname in self.vars:
                 fields[fieldname] = self.vars[fieldname]
@@ -1049,9 +1012,6 @@ class SQLFORM(FORM):
             elif field.type == 'integer':
                 if value != None:
                     fields[fieldname] = safe_int(value)
-            elif field.type.startswith('reference'):
-                if value != None and isinstance(self.table,Table) and not keyed:
-                    fields[fieldname] = safe_int(value)
             elif field.type == 'double':
                 if value != None:
                     fields[fieldname] = safe_float(value)
@@ -1061,38 +1021,18 @@ class SQLFORM(FORM):
                  and not fieldname in fields and not fieldname\
                  in request_vars:
                 fields[fieldname] = self.vars[fieldname]
-
-        if dbio:
-            if keyed:
-                if reduce(lambda x,y: x and y, record_id.values()): # if record_id
-                    if fields:
-                        qry = reduce(lambda x,y: x & y, [self.table[k]==self.record[k] for k in self.table._primarykey])
-                        self.table._db(qry).update(**fields)
-                else:
-                    pk = self.table.insert(**fields)
-                    if pk:
-                        self.vars.update(pk)
-                    else:
-                        ret = False
-            else:
-                if record_id:
-                    self.vars.id = self.record.id
-                    if fields:
-                        self.table._db(self.table.id == self.record.id).update(**fields)
-                else:
-                    self.vars.id = self.table.insert(**fields)
         return ret
 
     @staticmethod
     def factory(*fields, **attributes):
         """
-        generates a SQLFORM for the given fields.
+        generates a FORMBUILDER for the given fields.
 
         Internally will build a non-database based data model
         to hold the fields.
         """
         # Define a table name, this way it can be logical to our CSS.
-        # And if you switch from using SQLFORM to SQLFORM.factory
+        # And if you switch from using FORMBUILDER to FORMBUILDER.factory
         # your same css definitions will still apply.
 
         table_name = attributes.get('table_name', 'no_table')
@@ -1101,16 +1041,16 @@ class SQLFORM(FORM):
         if 'table_name' in attributes:
             del attributes['table_name']
 
-        return SQLFORM(SQLDB(None).define_table(table_name, *fields),
+        return FORMBUILDER(SQLDB(None).define_table(table_name, *fields),
                        **attributes)
 
 if __name__ == '__main__':
-    import formbuilder
-    frm = formbuilder.Table(
+    import tablebuilder
+    frm = tablebuilder.Table(
         "huaiyu",
-        formbuilder.Field("name","string",default="hello"),
-        formbuilder.Field("age","integer",default=20)
+        tablebuilder.Field("name","string",default="hello"),
+        tablebuilder.Field("age","integer",default=20)
     )
     vars = {"name":"huaiyu", "age":40}
-    form = SQLFORM(frm, vars, formstyle="divs")
+    form = FORMBUILDER(frm, vars, formstyle="divs")
     print form

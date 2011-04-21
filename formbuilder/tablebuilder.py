@@ -108,19 +108,15 @@ class Field(dict):
         length=None,
         default=DEFAULT,
         requires=DEFAULT,
-        uploadfield=True,
         widget=None,
         label=None,
         comment=None,
         writable=True,
         readable=True,
         update=None,
-        authorize=None,
         represent=None,
-        uploadfolder=None,
-        uploadseparate=False,
-        compute=None,
         custom_store=None,
+        custom_retrieve=None,
         ):
         self.db = None
         self.op = None
@@ -133,22 +129,18 @@ class Field(dict):
             self.default = update or None
         else:
             self.default = default
-        self.uploadfield = uploadfield
-        self.uploadfolder = uploadfolder
-        self.uploadseparate = uploadseparate
         self.widget = widget
         self.label = label or ' '.join(item.capitalize() for item in fieldname.split('_'))
         self.comment = comment
         self.writable = writable
         self.readable = readable
         self.update = update
-        self.authorize = authorize
         if not represent and type in ('list:integer','list:string'):
             represent=lambda x: ', '.join(str(y) for y in x or [])
         self.represent = represent
-        self.compute = compute
         self.isattachment = True
         self.custom_store = custom_store
+        self.custom_retrieve = custom_retrieve
         if self.label == None:
             self.label = ' '.join([x.capitalize() for x in
                                   fieldname.split('_')])
@@ -160,54 +152,14 @@ class Field(dict):
     def store(self, file, filename=None, path=None):
         if callable(self.custom_store):
             return self.custom_store(file,filename,path)
-        if not filename:
-            filename = file.name
-        filename = os.path.basename(filename.replace('/', os.sep)\
-                                        .replace('\\', os.sep))
-        m = re.compile('\.(?P<e>\w{1,5})$').search(filename)
-        extension = m and m.group('e') or 'txt'
-        uuid_key = web2py_uuid().replace('-', '')[-16:]
-        encoded_filename = base64.b16encode(filename).lower()
-        newfilename = '%s.%s.%s' % \
-            (self._tablename, self.name, uuid_key)
-        newfilename = newfilename + '.' + extension
-
-        if self.uploadfield == True:
-            if self.uploadfolder:
-                path = self.uploadfolder
-            else:
-                raise RuntimeError, "you must specify a Field(...,uploadfolder=...)"
-            if self.uploadseparate:
-                path = os.path.join(path,"%s.%s" % (self._tablename, self.name),uuid_key[:2])
-            if not os.path.exists(path):
-                os.makedirs(path)
-            pathfilename = os.path.join(path, newfilename)
-            dest_file = open(pathfilename, 'wb')
-            shutil.copyfileobj(file, dest_file)
-            dest_file.close()
-        return newfilename
+        else:
+            raise Exception("you must write your store yourself")
 
     def retrieve(self, name, path=None):
-        try:
-            m = regex_content.match(name)
-            if not m or not self.isattachment:
-                raise TypeError, 'Can\'t retrieve %s' % name
-            filename = base64.b16decode(m.group('name'), True)
-            filename = regex_cleanup_fn.sub('_', filename)
-        except (TypeError, AttributeError):
-            filename = name
+        if callable(self.custom_retrieve):
+            return self.custom_retrieve(name,path)
 
-        # ## if file is on filesystem
-        if self.uploadfolder:
-            path = self.uploadfolder
-        else:
-            raise RuntimeError, "you must specify a Field(...,uploadfolder=...)"
-        if self.uploadseparate:
-            t = m.group('table')
-            f = m.group('field')
-            u = m.group('uuidkey')
-            path = os.path.join(path,"%s.%s" % (t,f),u[:2])
-        return (filename, open(os.path.join(path, name), 'rb'))
+        raise Exception("you must write your retrive yourself")
 
     def formatter(self, value):
         if value is None or not self.requires:

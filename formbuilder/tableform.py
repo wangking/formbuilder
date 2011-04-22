@@ -392,7 +392,7 @@ class UploadWidget(FormWidget):
 
         :param download_url: Optional URL to link to the file (default = None)
         """
-
+        print "value=%s down_url=%s"%(value,download_url)
         default=dict(
             _type='file',
             )
@@ -400,8 +400,8 @@ class UploadWidget(FormWidget):
 
         inp = INPUT(**attr)
 
-        if download_url and value:
-            url = download_url + '/' + value
+        if download_url != None and value:
+            url = download_url + value
             (br, image) = ('', '')
             if UploadWidget.is_image(value):
                 br = BR()
@@ -438,8 +438,8 @@ class UploadWidget(FormWidget):
 
         inp = UploadWidget.GENERIC_DESCRIPTION
 
-        if download_url and value:
-            url = download_url + '/' + value
+        if download_url != None and value:
+            url = download_url + value
             if UploadWidget.is_image(value):
                 inp = IMG(_src = url, _width = UploadWidget.DEFAULT_WIDTH)
             inp = A(inp, _href = url)
@@ -627,7 +627,7 @@ class FORMBUILDER(FORM):
         table,
         record = None,
         deletable = False,
-        download = None,
+        download = "",
         upload = None,
         fields = None,
         labels = None,
@@ -970,7 +970,7 @@ class FORMBUILDER(FORM):
                 if self.custom_file:
                     self.vars[fieldname] = self.custom_file(field, request_vars)
                 else:
-                    self.vars[fieldname] = field.store(request_vars[fieldname],request_vars.get("%s.original"%fieldname,""))
+                    self.vars[fieldname] = field.store(request_vars.get(fieldname,""),request_vars.get("%s.original"%fieldname,""))
                 continue
             elif fieldname in self.vars:
                 fields[fieldname] = self.vars[fieldname]

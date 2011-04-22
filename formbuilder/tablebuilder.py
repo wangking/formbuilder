@@ -321,17 +321,7 @@ class Table(dict):
     def __getitem__(self, key):
         if not key:
             return None
-        elif isinstance(key, dict):
-            """ for keyed table """
-            query = self._build_query(key)
-            rows = self._db(query).select()
-            if rows:
-                return rows[0]
-            return None
-        elif str(key).isdigit():
-            return self._db(self.id == key).select(limitby=(0,1)).first()
-        elif key:
-            return dict.__getitem__(self, str(key))
+        return dict.__getitem__(self, str(key))
 
 
     def __setitem__(self, key, value):
@@ -342,9 +332,6 @@ class Table(dict):
                 kv = {}
                 kv.update(value)
                 kv.update(key)
-                if not self.insert(**kv):
-                    query = self._build_query(key)
-                    self._db(query).update(**self._filter_fields(value))
             else:
                 raise SyntaxError,\
                     'key must have all fields from primary key: %s'%\

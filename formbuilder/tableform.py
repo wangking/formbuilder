@@ -649,6 +649,12 @@ class FORMBUILDER(FORM):
                fields=['name'],
                labels={'name': 'Your name'},
         """
+        self.table = table
+        if record:
+            for itm in record:
+                if isinstance(record[itm],(list,tuple)):
+                    if not (itm in self.table.fields and self.table[itm].type.startswith("list::")):
+                        record[itm] = record[itm][-1]
         self.custom_file = upload
         self.ignore_rw = ignore_rw
         self.formstyle = formstyle
@@ -662,7 +668,6 @@ class FORMBUILDER(FORM):
         if fields == None:
             fields = [f.name for f in table if (ignore_rw or f.writable or f.readable)]
 
-        self.table = table
         self.record = record
 
         self.field_parent = {}
@@ -853,6 +858,11 @@ class FORMBUILDER(FORM):
         """
         # implement logic to detect whether record exist but has been modified
         # server side
+        _vars_ = {}
+        for itm in request_vars:
+            if isinstance(request_vars[itm],(list,tuple)):
+                if not (itm in self.table.fields and self.table[itm].type.startswith("list::")):
+                    request_vars[itm] = request_vars[itm][-1]
         if self.record:
             (formname_id, record_id) = ( self.record.get(self.record_pk_name, None), 
                                          request_vars.get(self.record_pk_name, None))

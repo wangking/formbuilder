@@ -639,8 +639,9 @@ class FORMBUILDER(FORM):
         comments = True,
         keepopts = [],
         ignore_rw = False,
-        formstyle = 'table3cols',
+        formstyle = 'divs',
         record_pk_name = '_id',
+        tabs = [],
         **attributes
         ):
         """
@@ -671,7 +672,8 @@ class FORMBUILDER(FORM):
         self.record = record
 
         self.field_parent = {}
-        xfields = []
+        xfields = {}
+        xfields_keys = []
         self.fields = fields
         self.custom = Storage()
         self.custom.dspval = Storage()
@@ -774,8 +776,8 @@ class FORMBUILDER(FORM):
                 continue
             else:
                 inp = self.widgets.string.widget(field, default)
-
-            xfields.append((row_id,label,inp,comment))
+            xfields_keys.append(fieldname)
+            xfields[fieldname] = (row_id,label,inp,comment)
             self.custom.dspval[fieldname] = dspval or nbsp
             self.custom.inpval[fieldname] = inpval or ''
             self.custom.widget[fieldname] = inp
@@ -786,8 +788,6 @@ class FORMBUILDER(FORM):
         if not readonly:
             widget = INPUT(_type='submit',_class="submit",
                            _value=submit_button)
-            xfields.append(('submit_record'+FORMBUILDER.ID_ROW_SUFFIX,
-                            '', widget,col3.get('submit_button', '')))
             self.custom.submit = widget
         # if a record is provided and found
         # make sure it's id is stored in the form
@@ -798,46 +798,45 @@ class FORMBUILDER(FORM):
         (begin, end) = self._xml()
         self.custom.begin = XML("<%s %s>" % (self.tag, begin))
         self.custom.end = XML("%s</%s>" % (end, self.tag))
-        if formstyle == 'table3cols':
-            table = TABLE()
-            for id,a,b,c in xfields:
-                td_b = self.field_parent[id] = TD(b,_class='w2p_fw')
-                table.append(TR(TD(a,_class='w2p_fl'),
-                                td_b,
-                                TD(c,_class='w2p_fc'),_id=id))
-        elif formstyle == 'table2cols':
-            table = TABLE()
-            for id,a,b,c in xfields:
-                td_b = self.field_parent[id] = TD(b,_class='w2p_fw',_colspan="2")
-                table.append(TR(TD(a,_class='w2p_fl'),
-                                TD(c,_class='w2p_fc'),_id=id+'1',_class='even'))
-                table.append(TR(td_b,_id=id+'2',_class='odd'))
-        elif formstyle == 'divs':
-            table = TAG['']()
-            for id,a,b,c in xfields:
-                div_b = self.field_parent[id] = DIV(b,_class='w2p_fw')
-                table.append(DIV(DIV(a,_class='w2p_fl'),
+
+        table = TAG['']()
+        if formstyle == 'divs':
+            # tabs = [
+            #          {"tabname":"personal","caption":"个人信息","fields":["login","age"]},
+            #          {"tabname":"comp","caption":"公司信息","fields":["login","age"]},
+            #          {"tabname":"gf","caption":"朋友信息","fields":["login","age"]},
+            #        ]
+            if tabs:
+                tab_headers = UL()
+                tab_bodys = []
+                
+                for i, tab in enumerate(tabs):
+                    tbody = DIV(_id="body_%s"%(tab.get("tabname","")))
+                    if i == 0:
+                        li = LI(tab.get("caption",""),_class="active", _id="tab_%s"%(tab.get("tabname","")))
+                        tbody['_class'] = "active"
+                    else:
+                        li = LI(tab.get("caption",""),_style="display:none;",_id="tab_%s"%(tab.get("tabname","")))
+                        tbody['_style'] = "display:none;"
+                    tab_headers.append(li)
+                    for f in tab.get("fields",[]):
+                        if f in xfields_keys:
+                            id,a,b,c = xfields[f]
+                            div_b = self.field_parent[id] = DIV(b,_class='w2p_fw')
+                            tbody.append(DIV(DIV(a,_class='w2p_fl'),div_b,DIV(c,_class='w2p_fc'),_id=id))
+                    tab_bodys.append(tbody)                  
+                tab_headers = DIV(tab_headers, _id="tab_headers_%s"%self.table._tablename)
+                tab_bodys = DIV(tab_bodys, _id="tab_bodys_%s"%self.table._tablename)
+                table.append(DIV(tab_headers, tab_bodys))
+            else:
+                for d in xfields_keys:
+                    id,a,b,c = xfields[d]
+                    div_b = self.field_parent[id] = DIV(b,_class='w2p_fw')
+                    table.append(DIV(DIV(a,_class='w2p_fl'),
                                  div_b,
                                  DIV(c,_class='w2p_fc'),_id=id))
-        elif formstyle == 'ul':
-            table = UL()
-            for id,a,b,c in xfields:
-                div_b = self.field_parent[id] = DIV(b,_class='w2p_fw')
-                table.append(LI(DIV(a,_class='w2p_fl'),
-                                 div_b,
-                                 DIV(c,_class='w2p_fc'),_id=id))
-        elif type(formstyle) == type(lambda:None):
-            table = TABLE()
-            for id,a,b,c in xfields:
-                td_b = self.field_parent[id] = TD(b,_class='w2p_fw')
-                newrows = formstyle(id,a,td_b,c)
-                if type(newrows).__name__ != "tuple":
-                    newrows = [newrows]
-                for newrow in newrows:
-                    table.append(newrow)
-        else:
-            raise RuntimeError, 'formsyle not supported'
-        self.components = [table]
+
+        self.components = [table, self.custom.submit]
 
     def accepts(
         self,

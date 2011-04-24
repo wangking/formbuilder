@@ -17,6 +17,8 @@ table = tablebuilder.Table(
 table.age.requires = validators.IS_INT_IN_RANGE(18,25,error_message = "your age is not suitable for me")
 table.friends.requires = validators.IS_IN_SET([("huaiyu","wang huaiyu"),("tim", "wang tim"),("jim", "jim green")],multiple=True)
 vars = {"_id":"98234","name":"huaiyu", "age":[20], "mysql":False, "friends":["huaiyu","jim"],"profile":"dsfsfs.jpg"}
-form = tableform.FORMBUILDER(table, vars, formstyle="divs",hidden={"xslf":"sfsdfsfwwr23ds"})
+
+tabs = [{"caption":"name and age","tabname":"NAA","fields":["name","age"]},{"caption":"others","tabname":"others","fields":["mysex","profile","friends"]}]
+form = tableform.FORMBUILDER(table, vars, formstyle="divs",hidden={"xslf":"sfsdfsfwwr23ds"},tabs=None)
 print form.accepts(vars)
-print form.vars
+print form

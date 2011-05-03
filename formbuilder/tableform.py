@@ -825,7 +825,7 @@ class FORMBUILDER(FORM):
                         if f in xfields_keys:
                             id,a,b,c = xfields[f]
                             div_b = self.field_parent[id] = DIV(b,_class='w2p_fw')
-                            tbody.append(DIV(DIV(a,_class='w2p_fl'),div_b,DIV(c,_class='w2p_fc'),_id=id))
+                            tbody.append(DIV(DIV(a,_class='w2p_fl'),div_b,DIV(c,_class='w2p_fc'),_id=id, _class="fb_row"))
                     tab_bodys.append(tbody)                  
                 tab_headers = DIV(tab_headers, _id="tab_headers_%s"%self.table._tablename)
                 tab_bodys = DIV(tab_bodys, _id="tab_bodys_%s"%self.table._tablename)
@@ -836,7 +836,7 @@ class FORMBUILDER(FORM):
                     div_b = self.field_parent[id] = DIV(b,_class='w2p_fw')
                     table.append(DIV(DIV(a,_class='w2p_fl'),
                                  div_b,
-                                 DIV(c,_class='w2p_fc'),_id=id))
+                                 DIV(c,_class='w2p_fc'),_id=id,_class="fb_row"))
 
         self.components = [table, self.custom.submit]
 

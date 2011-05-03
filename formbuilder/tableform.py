@@ -789,7 +789,8 @@ class FORMBUILDER(FORM):
         self.custom.submit = ''
         if not readonly:
             widget = INPUT(_type='submit',_class="submit",
-                           _value=submit_button)
+                           _value=submit_button,
+                           _id = "submit_%s"%self.table._tablename )
             self.custom.submit = widget
         # if a record is provided and found
         # make sure it's id is stored in the form

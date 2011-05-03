@@ -877,7 +877,6 @@ class FORMBUILDER(FORM):
             formname = formname % dict(tablename = self.table._tablename,
                                        record_id = formname_id)
 
-        # ## THIS IS FOR UNIQUE RECORDS, read IS_NOT_IN_DB
 
         for fieldname in self.fields:
             field = self.table[fieldname]

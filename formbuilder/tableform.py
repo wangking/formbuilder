@@ -7,7 +7,7 @@ from html import TABLE, THEAD, TBODY, TR, TD, TH
 from storage import Storage
 from hashfunc import md5_hash
 from validators import IS_EMPTY_OR
-
+import copy
 import urllib
 import re
 import cStringIO
@@ -80,7 +80,9 @@ class StringWidget(FormWidget):
 
         see also: :meth:`FormWidget.widget`
         """
-
+        if value:
+            if isinstance(value, unicode):
+                value = value.encode("utf-8")
         default = dict(
             _type = 'text',
             value = (value!=None and str(value)) or '',
@@ -858,6 +860,7 @@ class FORMBUILDER(FORM):
         # implement logic to detect whether record exist but has been modified
         # server side
         _vars_ = {}
+        request_vars = copy.deepcopy(request_vars)
         for itm in request_vars:
             if isinstance(request_vars[itm],(list,tuple)):
                 if not (itm in self.table.fields and self.table[itm].type.startswith("list::")):

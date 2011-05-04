@@ -663,7 +663,7 @@ class FORMBUILDER(FORM):
         self.formstyle = formstyle
         self.record_pk_name = record_pk_name
         nbsp = XML('&nbsp;') # Firefox2 does not display fields with blanks
-        attributes.update({"_id":self.table._tablename})
+        attributes.update({"_id":"hyform_%s"%self.table._tablename})
         FORM.__init__(self, *[], **attributes)
         ofields = fields
 

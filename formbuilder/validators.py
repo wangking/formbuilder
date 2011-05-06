@@ -38,6 +38,7 @@ __all__ = [
     'IS_IMAGE',
     'IS_IN_DB',
     'IS_IN_SET',
+    'IS_NOT_IN_SET',
     'IS_INT_IN_RANGE',
     'IS_IPV4',
     'IS_LENGTH',
@@ -247,6 +248,17 @@ class IS_LENGTH(Validator):
                 pass
         return (value, self.error_message)
 
+class IS_NOT_IN_SET(Validator):
+    def __init__(self, theset, error_message='value not allowed'):
+        self.theset = theset
+        self.error_message = error_message
+
+    def __call__(self, value):
+        if isinstance(value, unicode):
+            value = value.encode("utf-8")
+        if value in self.theset:
+            return (value, self.error_message)
+        return (value, None)
 
 class IS_IN_SET(Validator):
     """
@@ -2856,4 +2868,4 @@ class IS_IPV4(Validator):
         return (value, self.error_message)
 
 if __name__ == '__main__':
-    print CRYPT()('256.2.3.4')
+    print IS_NOT_IN_SET([1,2,3])(5)

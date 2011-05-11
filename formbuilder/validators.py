@@ -2081,6 +2081,8 @@ class IS_DATE(Validator):
             return (value, self.error_message % IS_DATETIME.nice(self.format))
 
     def formatter(self, value):
+        if isinstance(value, (str, unicode)):
+            return str(value)
         format = self.format
         year = value.year
         y = '%.4i' % year
@@ -2135,6 +2137,8 @@ class IS_DATETIME(Validator):
             return (value, self.error_message % IS_DATETIME.nice(self.format))
 
     def formatter(self, value):
+        if isinstance(value, (str, unicode)):
+            return str(value)
         format = self.format
         year = value.year
         y = '%.4i' % year

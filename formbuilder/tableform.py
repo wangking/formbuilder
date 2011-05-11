@@ -394,7 +394,6 @@ class UploadWidget(FormWidget):
 
         :param download_url: Optional URL to link to the file (default = None)
         """
-        print "value=%s down_url=%s"%(value,download_url)
         default=dict(
             _type='file',
             )

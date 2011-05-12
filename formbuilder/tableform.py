@@ -864,7 +864,7 @@ class FORMBUILDER(FORM):
         request_vars = copy.deepcopy(request_vars)
         for itm in request_vars:
             if isinstance(request_vars[itm],(list,tuple)):
-                if not (itm in self.table.fields and self.table[itm].type.startswith("list::")):
+                if not (str(itm) in self.table.fields and str(self.table[itm].type).startswith("list::")):
                     request_vars[itm] = request_vars[itm][-1]
         if self.record:
             (formname_id, record_id) = ( self.record.get(self.record_pk_name, None), 

@@ -2056,6 +2056,8 @@ class IS_TIME(Validator):
             pass
         return (ivalue, self.error_message)
 
+    def formatter(self, value):
+        return str(value)
 
 class IS_DATE(Validator):
     """

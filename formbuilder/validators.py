@@ -52,9 +52,12 @@ __all__ = [
     'IS_SLUG',
     'IS_STRONG',
     'IS_TIME',
+    'IS_TIME_IN_RANGE',
     'IS_UPLOAD_FILENAME',
     'IS_UPPER',
     'IS_URL',
+    'IS_LESS_THAN',
+    'IS_GREATER_THAN'
     ]
 
 def options_sorter(x,y):
@@ -218,9 +221,16 @@ class IS_LENGTH(Validator):
         ('1234567890', 'enter from 20 to 50 characters')
     """
 
-    def __init__(self, maxsize=255, minsize=0, error_message='enter from %(min)g to %(max)g characters'):
+    def __init__(self, maxsize=0, minsize=0, error_message=None):
         self.maxsize = maxsize
         self.minsize = minsize
+        if error_message is None:
+            if minsize > 0:
+                error_message = "length should be greater than %(min)d"
+            if maxsize > 0:
+                error_message = "length should be less than %(max)d"
+            if minsize > 0 and maxsize > 0:
+                error_message = "length should be in range %(min)s to  %(max)d"
         self.error_message = error_message % dict(min=minsize, max=maxsize)
 
     def __call__(self, value):
@@ -235,18 +245,15 @@ class IS_LENGTH(Validator):
                     length = len(val)
                 else:
                     length = 0
-            if self.minsize <= length <= self.maxsize:
-                return (value, None)
         elif isinstance(value, (str, unicode, list)):
-            if self.minsize <= len(value) <= self.maxsize:
-                return (value, None)
-        elif self.minsize <= len(str(value)) <= self.maxsize:
-            try:
-                value.decode('utf8')
-                return (value, None)
-            except:
-                pass
-        return (value, self.error_message)
+            length = len(value)
+        else:
+            length = len(str(value))
+        if self.maxsize>0  and self.maxsize < length:
+            return (value, self.error_message)
+        if self.minsize>0  and self.minsize > length:
+            return (value, self.error_message)
+        return (value, None)
 
 class IS_NOT_IN_SET(Validator):
     def __init__(self, theset, error_message='value not allowed'):
@@ -2195,6 +2202,47 @@ class IS_DATE_IN_RANGE(IS_DATE):
             return (value, self.error_message)
         return (value, None)
 
+class IS_TIME_IN_RANGE(IS_TIME):
+    """
+    example::
+
+        >>> v = IS_DATETIME_IN_RANGE(\
+                minimum=datetime.datetime(2008,1,1,12,20), \
+                maximum=datetime.datetime(2009,12,31,12,20), \
+                format="%m/%d/%Y %H:%M",error_message="oops")
+        >>> v('03/03/2008 12:40')
+        (datetime.datetime(2008, 3, 3, 12, 40), None)
+
+        >>> v('03/03/2010 10:34')
+        (datetime.datetime(2010, 3, 3, 10, 34), 'oops')
+    """
+    def __init__(self,
+                 minimum = None,
+                 maximum = None,
+                 error_message = None):
+        self.minimum = minimum
+        self.maximum = maximum
+        if error_message is None:
+            if minimum is None:
+                error_message = "enter  time on or before %(max)s"
+            elif maximum is None:
+                error_message = "enter time on or after %(min)s"
+            else:
+                error_message = "enter time in range %(min)s %(max)s"
+        d = dict(min = minimum, max = maximum)
+        IS_TIME.__init__(self,
+                         error_message = error_message % d)
+
+    def __call__(self, value):
+        (value, msg) = IS_TIME.__call__(self, value)
+        if msg is not None:
+            return (value, msg)
+        if self.minimum and self.minimum > value:
+            return (value, self.error_message)
+        if self.maximum and value > self.maximum:
+            return (value, self.error_message)
+        return (value, None)
+
 
 class IS_DATETIME_IN_RANGE(IS_DATETIME):
     """
@@ -2517,6 +2565,25 @@ class IS_STRONG(object):
         else:
             return (value, self.error_message)
 
+class IS_GREATER_THAN(Validator):
+    def __init__(self, minvalue, error_message="too small"):
+        self.error_message = error_message
+        self.minvalue = minvalue
+
+    def __call__(self, value):
+        if value < self.minvalue:
+            return (value, self.error_message)
+        return (value, None)
+
+class IS_LESS_THAN(Validator):
+    def __init__(self, maxvalue, error_message="too big"):
+        self.error_message = error_message
+        self.maxvalue = maxvalue
+
+    def __call__(self, value):
+        if value > self.maxvalue:
+            return (value, self.error_message)
+        return (value, None)
 
 class IS_IN_SUBSET(IS_IN_SET):
 

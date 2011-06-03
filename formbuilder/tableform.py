@@ -979,9 +979,9 @@ class FORMBUILDER(FORM):
                     PasswordWidget.DEFAULT_PASSWORD_DISPLAY:
                 continue  # do not update if password was not changed
             elif field.type == 'upload':
-                if self.vars.get("%s___delete"%fieldname,False):
+                if self.vars.get("%s__delete"%fieldname,False):
                     self.vars[fieldname] = ""
-                    del self.vars["%s___delete"%fieldname]
+                    del self.vars["%s__delete"%fieldname]
                     continue
                 if self.custom_file:
                     self.vars[fieldname] = self.custom_file(field, request_vars)

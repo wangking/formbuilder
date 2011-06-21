@@ -91,6 +91,26 @@ class StringWidget(FormWidget):
 
         return INPUT(**attr)
 
+class HiddenWidget(FormWidget):
+
+    @staticmethod
+    def widget(field, value, **attributes):
+        """
+        generates an INPUT text tag.
+
+        see also: :meth:`FormWidget.widget`
+        """
+        if value:
+            if isinstance(value, unicode):
+                value = value.encode("utf-8")
+        default = dict(
+            _type = 'hidden',
+            value = (value!=None and str(value)) or '',
+            )
+        attr = StringWidget._attributes(field, default, **attributes)
+
+        return INPUT(**attr)
+
 
 class IntegerWidget(StringWidget):
 
@@ -464,92 +484,6 @@ class UploadWidget(FormWidget):
         return False
 
 
-class AutocompleteWidget(object):
-
-    def __init__(self, request, field, id_field=None, db=None,
-                 orderby=None, limitby=(0,10),
-                 keyword='_autocomplete_%(fieldname)s',
-                 min_length=2):
-        self.request = request
-        self.keyword = keyword % dict(fieldname=field.name)
-        self.db = db or field._db
-        self.orderby = orderby
-        self.limitby = limitby
-        self.min_length = min_length
-        self.fields=[field]
-        if id_field:
-            self.is_reference = True
-            self.fields.append(id_field)
-        else:
-            self.is_reference = False
-        if hasattr(request,'application'):
-            self.url = Url(r=request, args=request.args)
-            self.callback()
-        else:
-            self.url = request
-    def callback(self):
-        if self.keyword in self.request.vars:
-            field = self.fields[0]
-            rows = self.db(field.like(self.request.vars[self.keyword]+'%'))\
-                .select(orderby=self.orderby,limitby=self.limitby,*self.fields)
-            if rows:
-                if self.is_reference:
-                    id_field = self.fields[1]
-                    raise HTTP(200,SELECT(_id=self.keyword,_class='autocomplete',
-                                          _size=len(rows),_multiple=(len(rows)==1),
-                                          *[OPTION(s[field.name],_value=s[id_field.name],
-                                                   _selected=(k==0)) \
-                                                for k,s in enumerate(rows)]).xml())
-                else:
-                    raise HTTP(200,SELECT(_id=self.keyword,_class='autocomplete',
-                                          _size=len(rows),_multiple=(len(rows)==1),
-                                          *[OPTION(s[field.name],
-                                                   _selected=(k==0)) \
-                                                for k,s in enumerate(rows)]).xml())
-            else:
-
-                raise HTTP(200,'')
-    def __call__(self,field,value,**attributes):
-        default = dict(
-            _type = 'text',
-            value = (value!=None and str(value)) or '',
-            )
-        attr = StringWidget._attributes(field, default, **attributes)
-        div_id = self.keyword+'_div'
-        attr['_autocomplete']='off'
-        if self.is_reference:
-            key2 = self.keyword+'_aux'
-            key3 = self.keyword+'_auto'
-            attr['_class']='string'
-            name = attr['_name']
-            if 'requires' in attr: del attr['requires']
-            attr['_name'] = key2
-            value = attr['value']
-            record = self.db(self.fields[1]==value).select(self.fields[0]).first()
-            attr['value'] = record and record[self.fields[0].name]
-            attr['_onblur']="jQuery('#%(div_id)s').delay(3000).fadeOut('slow');" % \
-                dict(div_id=div_id,u='F'+self.keyword)
-            attr['_onkeyup'] = "jQuery('#%(key3)s').val('');var e=event.which?event.which:event.keyCode; function %(u)s(){jQuery('#%(id)s').val(jQuery('#%(key)s :selected').text());jQuery('#%(key3)s').val(jQuery('#%(key)s').val())}; if(e==39) %(u)s(); else if(e==40) {if(jQuery('#%(key)s option:selected').next().length)jQuery('#%(key)s option:selected').attr('selected',null).next().attr('selected','selected'); %(u)s();} else if(e==38) {if(jQuery('#%(key)s option:selected').prev().length)jQuery('#%(key)s option:selected').attr('selected',null).prev().attr('selected','selected'); %(u)s();} else if(jQuery('#%(id)s').val().length>=%(min_length)s) jQuery.get('%(url)s?%(key)s='+escape(jQuery('#%(id)s').val()),function(data){if(data=='')jQuery('#%(key3)s').val('');else{jQuery('#%(id)s').next('.error').hide();jQuery('#%(div_id)s').html(data).show().focus();jQuery('#%(div_id)s select').css('width',jQuery('#%(id)s').css('width'));jQuery('#%(key3)s').val(jQuery('#%(key)s').val());jQuery('#%(key)s').change(%(u)s);jQuery('#%(key)s').click(%(u)s);};}); else jQuery('#%(div_id)s').fadeOut('slow');" % \
-                dict(url=self.url,min_length=self.min_length,
-                     key=self.keyword,id=attr['_id'],key2=key2,key3=key3,
-                     name=name,div_id=div_id,u='F'+self.keyword)
-            if self.min_length==0:
-                attr['_onfocus'] = attr['_onkeyup']
-            return TAG[''](INPUT(**attr),INPUT(_type='hidden',_id=key3,_value=value,
-                                               _name=name,requires=field.requires),
-                           DIV(_id=div_id,_style='position:absolute;'))
-        else:
-            attr['_name']=field.name
-            attr['_onblur']="jQuery('#%(div_id)s').delay(3000).fadeOut('slow');" % \
-                dict(div_id=div_id,u='F'+self.keyword)
-            attr['_onkeyup'] = "var e=event.which?event.which:event.keyCode; function %(u)s(){jQuery('#%(id)s').val(jQuery('#%(key)s').val())}; if(e==39) %(u)s(); else if(e==40) {if(jQuery('#%(key)s option:selected').next().length)jQuery('#%(key)s option:selected').attr('selected',null).next().attr('selected','selected'); %(u)s();} else if(e==38) {if(jQuery('#%(key)s option:selected').prev().length)jQuery('#%(key)s option:selected').attr('selected',null).prev().attr('selected','selected'); %(u)s();} else if(jQuery('#%(id)s').val().length>=%(min_length)s) jQuery.get('%(url)s?%(key)s='+escape(jQuery('#%(id)s').val()),function(data){jQuery('#%(id)s').next('.error').hide();jQuery('#%(div_id)s').html(data).show().focus();jQuery('#%(div_id)s select').css('width',jQuery('#%(id)s').css('width'));jQuery('#%(key)s').change(%(u)s);jQuery('#%(key)s').click(%(u)s);}); else jQuery('#%(div_id)s').fadeOut('slow');" % \
-                dict(url=self.url,min_length=self.min_length,
-                     key=self.keyword,id=attr['_id'],div_id=div_id,u='F'+self.keyword)
-            if self.min_length==0:
-                attr['_onfocus'] = attr['_onkeyup']
-            return TAG[''](INPUT(**attr),DIV(_id=div_id,_style='position:absolute;'))
-
-
 class FORMBUILDER(FORM):
 
     """
@@ -600,6 +534,7 @@ class FORMBUILDER(FORM):
     widgets = Storage(dict(
         string = StringWidget,
         text = TextWidget,
+        hidden = HiddenWidget,
         password = PasswordWidget,
         integer = IntegerWidget,
         double = DoubleWidget,
@@ -768,6 +703,8 @@ class FORMBUILDER(FORM):
                 inp = self.widgets.list.widget(field,default)
             elif field.type == 'text':
                 inp = self.widgets.text.widget(field, default)
+            elif field.type == 'hidden':
+                inp = self.widgets.hidden.widget(field, default)
             elif field.type == 'password':
                 inp = self.widgets.password.widget(field, default)
                 if self.record:
@@ -1019,7 +956,8 @@ if __name__ == '__main__':
     frm = tablebuilder.Table(
         "huaiyu",
         tablebuilder.Field("name","string",default="hello"),
-        tablebuilder.Field("age","integer",default=20)
+        tablebuilder.Field("age","integer",default=20),
+        tablebuilder.Field("ages","hidden",default=20)
     )
     vars = {"name":"huaiyu", "age":40}
     form = FORMBUILDER(frm, vars, formstyle="divs")

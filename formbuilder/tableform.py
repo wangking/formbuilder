@@ -549,7 +549,6 @@ class FORMBUILDER(FORM):
         multiple = CheckboxesWidget,
         radio = RadioWidget,
         checkboxes = CheckboxesWidget,
-        autocomplete = AutocompleteWidget,
         list = ListWidget,
         ))
 
